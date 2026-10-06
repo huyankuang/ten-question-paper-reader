@@ -1,0 +1,42 @@
+body {
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: 13px;
+  padding: 12px;
+  color: var(--vscode-foreground);
+}
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+header h1 { font-size: 16px; margin: 0; }
+button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer;
+}
+button:hover { opacity: 0.9; }
+.status { margin: 8px 0; padding: 6px; border-radius: 3px; color: var(--vscode-descriptionForeground); }
+.status.active { background: var(--vscode-textBlockQuote-background); }
+.status.error { background: var(--vscode-inputValidation-errorBackground); color: var(--vscode-errorForeground); }
+.tabs { display: flex; gap: 4px; margin: 12px 0; }
+.tab { background: transparent; color: var(--vscode-descriptionForeground); border-bottom: 2px solid transparent; border-radius: 0; }
+.tab.active { color: var(--vscode-foreground); border-bottom-color: var(--vscode-focusBorder); }
+.hidden { display: none; }
+.qa { margin-bottom: 14px; padding: 10px; background: var(--vscode-textBlockQuote-background); border-radius: 4px; }
+.qid { display: inline-block; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); padding: 1px 6px; border-radius: 3px; margin-right: 6px; font-size: 11px; }
+.badge { font-size: 11px; color: var(--vscode-descriptionForeground); margin-left: 6px; }
+.confidence { font-size: 11px; color: var(--vscode-descriptionForeground); float: right; }
+.citation { font-size: 11px; color: var(--vscode-descriptionForeground); margin: 4px 0; }
+.full-answer { margin-top: 6px; line-height: 1.6; }
+.term { color: var(--vscode-textLink-foreground); border-bottom: 1px dotted var(--vscode-textLink-foreground); cursor: pointer; }
+.popover {
+  position: absolute; max-width: 320px; padding: 10px; z-index: 999;
+  background: var(--vscode-editor-hoverHighlightBackground, #2d2d2d);
+  border: 1px solid var(--vscode-panel-border); border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-size: 12px;
+}
+textarea {
+  width: 100%; box-sizing: border-box; padding: 8px;
+  background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border); border-radius: 3px;
+}
+.btn-row { margin-top: 8px; display: flex; gap: 8px; }
+.eval-card { margin-top: 12px; padding: 10px; background: var(--vscode-textBlockQuote-background); border-radius: 4px; }
+.hint { color: var(--vscode-descriptionForeground); font-size: 12px; }

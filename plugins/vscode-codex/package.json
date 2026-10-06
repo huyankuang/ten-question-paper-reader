@@ -1,0 +1,55 @@
+{
+  "name": "ten-question-paper-reader",
+  "displayName": "Ten-Question Paper Reader",
+  "description": "用十问精读法结构化拆解学术论文，交互式术语解释，半自助生成精读笔记。",
+  "version": "0.1.0",
+  "publisher": "tqpr",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Other", "Education"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tqpr-sidebar",
+          "title": "十问精读器",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "tqpr-sidebar": [
+        {
+          "id": "tqpr-panel",
+          "name": "论文精读",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      { "command": "tqpr.openPanel", "title": "十问精读器：打开面板" },
+      { "command": "tqpr.analyzePdf", "title": "十问精读器：分析当前PDF" }
+    ],
+    "configuration": {
+      "title": "Ten-Question Paper Reader",
+      "properties": {
+        "tqpr.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Python解释器路径（需安装 pymupdf 和 openai）"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

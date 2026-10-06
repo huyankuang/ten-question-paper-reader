@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node / VS Code
+node_modules/
+out/
+*.vsix
+
+# Local cache
+.tqpr-*.json
+.tqpr-*.txt
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
