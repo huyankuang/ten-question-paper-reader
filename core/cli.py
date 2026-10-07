@@ -29,13 +29,19 @@ def cmd_generate(args):
     with open(args.paper, "r", encoding="utf-8-sig") as f:
         paper_dict = json.load(f)
     # Minimal reconstruction — we only need title + full_text for LLM context.
-    from core.model.paper import Paper
+    from core.model.paper import Paper, Caption
     paper = Paper(
         title=paper_dict.get("title", ""),
         abstract=paper_dict.get("abstract", ""),
         full_text=paper_dict.get("full_text", ""),
         source_path=paper_dict.get("source_path", ""),
     )
+    # Restore captions so chart analysis references real Figure/Table numbers.
+    paper.captions = [
+        Caption(number=c.get("number", ""), kind=c.get("kind", "figure"),
+                text=c.get("text", ""), page=c.get("page", 0))
+        for c in paper_dict.get("captions", [])
+    ]
     # If full_text wasn't saved in the dict, re-extract from source.
     if not paper.full_text and paper.source_path:
         paper = extract_paper(paper.source_path)
@@ -49,7 +55,14 @@ def cmd_generate(args):
                 "id": qa.id, "question": qa.question, "type": qa.type,
                 "short_answer": qa.short_answer, "full_answer": qa.full_answer,
                 "citation": qa.citation, "confidence": qa.confidence,
+                "inline_terms": qa.inline_terms,
             } for qa in note.qa_pairs
+        ],
+        "experiment_setup": note.experiment_setup,
+        "key_figures": [
+            {"number": f.number, "kind": f.kind,
+             "why_focus": f.why_focus, "takeaway": f.takeaway}
+            for f in note.key_figures
         ],
         "glossary": note.glossary,
     }, ensure_ascii=False, indent=2))

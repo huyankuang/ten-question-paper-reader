@@ -23,6 +23,19 @@ class PaperSection:
 
 
 @dataclass
+class Caption:
+    """A figure/table caption extracted verbatim from the PDF.
+
+    Used to give the LLM real Figure/Table numbers so chart analysis
+    references actual captions instead of hallucinated indices.
+    """
+    number: str          # e.g. "Fig. 3" / "Table 2" / "图3"
+    kind: str           # "figure" | "table"
+    text: str = ""      # caption text after the number
+    page: int = 0
+
+
+@dataclass
 class Paper:
     """Structured representation of an academic paper."""
     title: str = ""
@@ -32,6 +45,7 @@ class Paper:
     total_pages: int = 0
     sections: List[PaperSection] = field(default_factory=list)
     terms: List[Term] = field(default_factory=list)
+    captions: List[Caption] = field(default_factory=list)
     source_path: str = ""
 
     def to_dict(self) -> Dict:
@@ -48,5 +62,9 @@ class Paper:
             "terms": [
                 {"name": t.name, "definition": t.definition, "section": t.section, "page": t.page}
                 for t in self.terms
+            ],
+            "captions": [
+                {"number": c.number, "kind": c.kind, "text": c.text, "page": c.page}
+                for c in self.captions
             ],
         }

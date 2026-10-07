@@ -11,7 +11,7 @@ try:
 except ImportError:
     fitz = None
 
-from core.model.paper import Paper, PaperSection
+from core.model.paper import Paper, PaperSection, Caption
 
 
 # Heuristics for common section headings in engineering papers.
@@ -23,6 +23,13 @@ SECTION_PATTERNS = [
     r"^\s*\d*\.?\d*\s*(conclusion|conclusions|summary and conclusion)\b",
     r"^\s*\d*\.?\d*\s*(reference|references|bibliography)\b",
 ]
+
+# Caption line anchors: "Fig. 3:", "Figure 2.", "Table IV", "图3", "表1".
+_CAPTION_RE = re.compile(
+    r"^\s*(?P<kind>Fig\.?|Figure|FIG\.?|Table|TABLE|Tab\.?|表|图)\s*"
+    r"(?P<num>\d+[.\d]*[a-zA-Z]?)\s*[:：.\-]?\s*(?P<rest>.*)$",
+    flags=re.IGNORECASE,
+)
 
 
 def _require_fitz():
@@ -59,7 +66,63 @@ def extract_paper(pdf_path: str) -> Paper:
             paper.abstract = s.text[:2000]
             break
 
+    # Extract figure/table captions verbatim so chart analysis can reference
+    # real numbers instead of hallucinating indices.
+    paper.captions = _extract_captions(page_texts)
+
     return paper
+
+
+def _extract_captions(page_texts: List[str]) -> List[Caption]:
+    """Scan pages for caption lines (Fig.x / Table x / 图x / 表x).
+
+    A caption block runs from the anchor line through following non-empty
+    continuation lines until a blank line or the next caption/section anchor.
+    """
+    captions: List[Caption] = []
+    pending: Caption | None = None
+    pending_lines: List[str] = []
+
+    def flush():
+        nonlocal pending, pending_lines
+        if pending is not None:
+            text = (pending.text + " " + " ".join(pending_lines)).strip()
+            pending.text = text[:400]
+            captions.append(pending)
+        pending = None
+        pending_lines = []
+
+    for page_idx, text in enumerate(page_texts, start=1):
+        for line in text.splitlines():
+            stripped = line.strip()
+            m = _CAPTION_RE.match(stripped)
+            # Avoid matching "Fig." citations inside body text like "see Fig. 3 for ..."
+            # — real captions start the line AND (short anchor or rest < 200 chars).
+            if m and len(stripped) < 200 and not stripped.lower().startswith(("see fig", "as fig", "fig. ", "fig.3")):
+                flush()
+                kind_raw = m.group("kind").lower()
+                kind = "table" if kind_raw.startswith(("table", "tab", "表")) else "figure"
+                number = f"{m.group('kind')} {m.group('num')}".replace(". ", ".").strip()
+                pending = Caption(number=number, kind=kind, text=m.group("rest").strip(), page=page_idx)
+                pending_lines = []
+            elif pending is not None:
+                if not stripped:
+                    flush()
+                elif len(stripped) < 200:
+                    pending_lines.append(stripped)
+                else:
+                    flush()
+    flush()
+
+    # Deduplicate by number, keep first occurrence.
+    seen = set()
+    out = []
+    for c in captions:
+        key = c.number.lower().replace(" ", "")
+        if key not in seen:
+            seen.add(key)
+            out.append(c)
+    return out
 
 
 def _split_sections(page_texts: List[str]) -> List[PaperSection]:
