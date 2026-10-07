@@ -31,49 +31,58 @@
 
 ## 🚀 快速开始
 
+> **v0.1.1 起，本项目已改造为 Codex Agent Skill：不再需要打开 VS Code、不需要按 F5 启动扩展开发宿主。**
+> 之前的 VSIX 单独安装后会报错，是因为插件把 Python `core/` 的位置硬编码为"扩展目录往上三级 = 仓库根"，
+> 打包成 VSIX 后这个相对路径指向 VS Code 扩展安装目录，那里没有 `core/`。
+> 现在仓库内置了自包含的 Codex Skill，Codex 打开本目录即可直接识别使用。
+
 ### 环境要求
-- Python 3.9+
-- Node.js 18+（编译VS Code插件用）
-- VS Code 1.80+ 或 Codex
-- OpenAI API Key（兼容OpenAI接口的服务均可）
+- Python 3.9+（依赖：`pip install -r requirements.txt`，即 pymupdf、openai）
+- OpenAI 兼容接口的 API Key（设为环境变量 `OPENAI_API_KEY`）
+- **不需要 Node.js、不需要 VS Code**（仅在你想重新打包侧边栏插件时才需要 Node 18+）
 
-### 1. 安装Python依赖
-```bash
-pip install -r requirements.txt
+### 方式一：在 Codex 里直接用（推荐）
+
+1. 用 Codex（CLI / IDE 均可）打开本仓库目录。
+2. 直接对它说：「帮我精读这篇论文：`/path/to/your_paper.pdf`」。
+3. Codex 会自动识别 `.codex/skills/ten-question-paper-reader/`，按三步流水线执行：
+   - 解析 PDF → `paper.json`
+   - 调 LLM 生成十问答案 → `note.json`
+   - 你写完自己的总结后，再让它跑四维度评价
+4. 全过程不需要打开任何 IDE。
+
+> 想全局可用？把整个 `.codex/skills/ten-question-paper-reader/` 文件夹拷到
+> `~/.codex/skills/` 即可——skill 内已带 `scripts/bundled/core/` 自包含运行时。
+
+### 方式二：纯命令行（不依赖任何 AI 助手）
+
+```powershell
+# 第一步：解析PDF
+python .codex/skills/ten-question-paper-reader/scripts/tqpr.py parse --pdf your_paper.pdf > paper.json
+
+# 第二步：生成十问答案
+python .codex/skills/ten-question-paper-reader/scripts/tqpr.py generate --paper paper.json > note.json
+
+# 第三步：写好总结后让AI评价
+python .codex/skills/ten-question-paper-reader/scripts/tqpr.py evaluate --note note.json --summary @my_summary.txt
 ```
 
-### 2. 配置API Key
-```bash
-# Windows PowerShell
-$env:OPENAI_API_KEY="sk-xxxx"
-# 可选：使用兼容代理
-$env:OPENAI_BASE_URL="https://your-proxy/v1"
-$env:TQPR_OPENAI_MODEL="gpt-4o-mini"
-```
+### 方式三：VS Code 侧边栏插件（可选，已修复路径问题）
 
-### 3. 编译VS Code插件
 ```bash
 cd plugins/vscode-codex
 npm install
 npm run compile
 ```
+- 用 VS Code 打开本仓库源码目录后按 `F5`；
+- 或在设置里手动指定 `tqpr.corePath` 为仓库根目录，再单独安装 VSIX。
+- 注：这只是 GUI 外壳，核心逻辑和方式一/二完全同一份 `core/`。
 
-### 4. 在VS Code中运行
-1. 用VS Code打开 `plugins/vscode-codex/` 文件夹
-2. 按 `F5` 启动扩展开发宿主
-3. 左侧活动栏点击「十问精读器」图标
-4. 点击「选择论文PDF」开始分析
-
-## 🖥️ 命令行使用（不装插件也能用）
+## 🖥️ 旧版裸命令（等价）
 
 ```bash
-# 第一步：解析PDF
 python -m core.cli parse --pdf your_paper.pdf > paper.json
-
-# 第二步：生成十问答案
 python -m core.cli generate --paper paper.json > note.json
-
-# 第三步：写好总结后让AI评价
 python -m core.cli evaluate --note note.json --summary @my_summary.txt
 ```
 
@@ -81,16 +90,28 @@ python -m core.cli evaluate --note note.json --summary @my_summary.txt
 
 ```
 ten-question-paper-reader/
-├── core/                    # 核心逻辑（跨客户端复用）
-│   ├── pdf_parser/          # PDF文本提取、术语识别
-│   ├── llm/                 # LLM调用、十问生成、评价
-│   ├── model/               # 数据模型
+├── .codex/
+│   └── skills/
+│       └── ten-question-paper-reader/   # ← Codex 自动识别的 Agent Skill
+│           ├── SKILL.md                 # 触发描述 + 工作流指令
+│           ├── agents/openai.yaml
+│           ├── scripts/
+│           │   ├── tqpr.py              # 自定位启动入口（核心）
+│           │   ├── bundled/core/        # 自包含 Python 运行时（兜底）
+│           │   └── requirements.txt
+│           └── references/
+│               └── ten-questions.md     # 十问框架与输出模板
+├── AGENTS.md                  # Codex 进仓库首先读到的说明
+├── core/                      # 核心逻辑（canonical 源，改完需同步到 bundled）
+│   ├── pdf_parser/           # PDF文本提取、术语识别
+│   ├── llm/                  # LLM调用、十问生成、评价
+│   ├── model/                # 数据模型
 │   ├── config.py            # 全局配置、十问定义、种子词库
-│   └── cli.py               # 命令行入口
+│   └── cli.py                # 命令行入口
 ├── plugins/
-│   └── vscode-codex/        # VS Code/Codex 插件
-├── docs/                     # 用户指南、开发指南
-├── examples/                 # 示例精读笔记
+│   └── vscode-codex/         # VS Code 侧边栏插件（可选 GUI，已修复 core/ 定位）
+├── docs/                      # 用户指南、开发指南
+├── examples/                  # 示例精读笔记（含 test-sample.pdf 烟雾测试）
 ├── requirements.txt
 └── README.md
 ```

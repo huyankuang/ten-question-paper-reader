@@ -38,6 +38,11 @@
           "type": "string",
           "default": "python",
           "description": "Python解释器路径（需安装 pymupdf 和 openai）"
+        },
+        "tqpr.corePath": {
+          "type": "string",
+          "default": "",
+          "description": "仓库根目录路径（包含 core/ 子目录）。VSIX 单独安装时若自动定位失败，在此手动指定。"
         }
       }
     }

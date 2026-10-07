@@ -2,8 +2,13 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { existsSync } from 'fs';
 
 const execFileAsync = promisify(execFile);
+
+function existsSyncSafe(p: string): boolean {
+  try { return existsSync(p); } catch { return false; }
+}
 
 export class TenQuestionProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
@@ -33,8 +38,18 @@ export class TenQuestionProvider implements vscode.WebviewViewProvider {
     if (!this.view) return;
     try {
       const python = this.getPythonPath();
-      // core/ is at the repo root; the extension lives at plugins/vscode-codex/
-      const repoRoot = path.join(this.extensionUri.fsPath, '..', '..', '..');
+      const repoRoot = this.resolveCoreRoot();
+      if (!repoRoot) {
+        this.view.webview.postMessage({
+          type: 'error',
+          text: '无法定位 Python 运行时 core/ 包。\n\n'
+            + 'VSIX 单独安装后不再硬编码相对路径。请任选其一：\n'
+            + '1. 在 VS Code 中打开本仓库源码目录（推荐方式见 README「Codex Skill」）；\n'
+            + '2. 在设置中配置 tqpr.corePath 指向仓库根目录；\n'
+            + '3. 直接使用命令行：python .codex/skills/ten-question-paper-reader/scripts/tqpr.py parse --pdf <你的PDF>',
+        });
+        return;
+      }
       const coreDir = path.join(repoRoot, 'core');
 
       // Step 1: parse PDF
@@ -98,6 +113,41 @@ export class TenQuestionProvider implements vscode.WebviewViewProvider {
 
   private getPythonPath(): string {
     return vscode.workspace.getConfiguration('tqpr').get<string>('pythonPath', 'python');
+  }
+
+  /**
+   * Locate the repo root that contains the Python `core/` package.
+   * Order of precedence:
+   *   1. `tqpr.corePath` setting (explicit user override).
+   *   2. Walk upward from this extension's install URI until a folder with
+   *      `core/config.py` is found (handles running from source checkout).
+   *   3. Search currently open workspace folders.
+   * Returns null when nothing matches; the caller surfaces a helpful message.
+   */
+  private resolveCoreRoot(): string | null {
+    const cfg = vscode.workspace.getConfiguration('tqpr');
+    const configured = cfg.get<string>('corePath', '');
+    if (configured) {
+      const candidate = path.join(configured, 'core', 'config.py');
+      if (existsSyncSafe(candidate)) return configured;
+    }
+
+    // Walk up from extensionUri.
+    let cursor = this.extensionUri.fsPath;
+    for (let i = 0; i < 8; i++) {
+      if (existsSyncSafe(path.join(cursor, 'core', 'config.py'))) return cursor;
+      const parent = path.dirname(cursor);
+      if (parent === cursor) break;
+      cursor = parent;
+    }
+
+    // Search open workspace folders.
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      if (existsSyncSafe(path.join(folder.uri.fsPath, 'core', 'config.py'))) {
+        return folder.uri.fsPath;
+      }
+    }
+    return null;
   }
 
   private getHtml(): string {
