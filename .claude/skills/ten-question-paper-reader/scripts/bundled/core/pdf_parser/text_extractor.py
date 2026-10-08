@@ -14,15 +14,36 @@ except ImportError:
 from core.model.paper import Paper, PaperSection, Caption
 
 
-# Heuristics for common section headings in engineering papers.
+# Heuristics for common section headings in engineering papers (EN + ZH).
 SECTION_PATTERNS = [
     r"^\s*\d*\.?\d*\s*(abstract|summary)\b",
     r"^\s*\d*\.?\d*\s*(introduction|background)\b",
-    r"^\s*\d*\.?\d*\s*(method|methodology|materials? and methods?|experimental|numerical|finite element|finite element model)\b",
+    r"^\s*\d*\.?\d*\s*(method|methodology|materials? and methods?|experimental|experiments?|numerical|finite element|finite element model)\b",
     r"^\s*\d*\.?\d*\s*(result|results|analysis|discussion|validation)\b",
     r"^\s*\d*\.?\d*\s*(conclusion|conclusions|summary and conclusion)\b",
     r"^\s*\d*\.?\d*\s*(reference|references|bibliography)\b",
+    # Chinese headings (common in domestic journals)
+    r"^\s*\d*\.?\d*\s*(摘要|关键词)\s*[:：]?",
+    r"^\s*\d*\.?\d*\s*(引言|介绍|前言|绪论)\s*$",
+    r"^\s*\d*\.?\d*\s*(实验|试验|方法|材料与方法|研究方法)\s*$",
+    r"^\s*\d*\.?\d*\s*(结果|结果与分析|分析与讨论|讨论)\s*$",
+    r"^\s*\d*\.?\d*\s*(结论|结论与展望|结语)\s*$",
+    r"^\s*\d*\.?\d*\s*(参考文献|引用标准)\s*$",
 ]
+
+# Robust abstract anchor: covers "ABSTRACT", "A B S T R A C T" (spaced, common
+# in two-column Elsevier layout), "Abstract", and Chinese "摘要".
+_ABSTRACT_ANCHOR_RE = re.compile(
+    r"^\s*A\s*B\s*S\s*T\s*R\s*A\s*C\s*T\s*[:：]?\s*$"
+    r"|^\s*(abstract|summary)\s*[:：]?\s*$"
+    r"|^\s*摘\s*要\s*[:：]?\s*$",
+    flags=re.IGNORECASE,
+)
+# Stop collecting abstract text once we hit the next heading.
+_ABSTRACT_STOP_RE = re.compile(
+    r"^\s*(keywords?|key\s*words|关键词|1[\.\s]+(introduction|引言|介绍)|1\s*\.?\s*introduction)\b",
+    flags=re.IGNORECASE,
+)
 
 # Caption line anchors: "Fig. 3:", "Figure 2.", "Table IV", "图3", "表1".
 _CAPTION_RE = re.compile(
@@ -60,17 +81,35 @@ def extract_paper(pdf_path: str) -> Paper:
     # Split into sections by heading patterns.
     paper.sections = _split_sections(page_texts)
 
-    # Guess abstract.
-    for s in paper.sections:
-        if "abstract" in s.title.lower():
-            paper.abstract = s.text[:2000]
-            break
+    # Guess abstract (robust: handles "A B S T R A C T" spaced layout,
+    # plain "Abstract", and Chinese "摘要").
+    paper.abstract = _extract_abstract(page_texts)
 
     # Extract figure/table captions verbatim so chart analysis can reference
     # real numbers instead of hallucinating indices.
     paper.captions = _extract_captions(page_texts)
 
     return paper
+
+
+def _extract_abstract(page_texts: List[str]) -> str:
+    """Walk page 1 (and page 2 overflow) for an abstract anchor, then collect
+    text until the next heading (keywords / 1. Introduction)."""
+    buf: List[str] = []
+    in_abstract = False
+    for page_idx, text in enumerate(page_texts[:2], start=1):
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not in_abstract:
+                if _ABSTRACT_ANCHOR_RE.match(stripped):
+                    in_abstract = True
+                continue
+            # Already inside abstract body.
+            if _ABSTRACT_STOP_RE.match(stripped):
+                return " ".join(buf).strip()[:2000]
+            if stripped:
+                buf.append(stripped)
+    return " ".join(buf).strip()[:2000]
 
 
 def _extract_captions(page_texts: List[str]) -> List[Caption]:
@@ -96,22 +135,34 @@ def _extract_captions(page_texts: List[str]) -> List[Caption]:
         for line in text.splitlines():
             stripped = line.strip()
             m = _CAPTION_RE.match(stripped)
-            # Avoid matching "Fig." citations inside body text like "see Fig. 3 for ..."
-            # — real captions start the line AND (short anchor or rest < 200 chars).
-            if m and len(stripped) < 200 and not stripped.lower().startswith(("see fig", "as fig", "fig. ", "fig.3")):
-                flush()
-                kind_raw = m.group("kind").lower()
-                kind = "table" if kind_raw.startswith(("table", "tab", "表")) else "figure"
-                number = f"{m.group('kind')} {m.group('num')}".replace(". ", ".").strip()
-                pending = Caption(number=number, kind=kind, text=m.group("rest").strip(), page=page_idx)
-                pending_lines = []
-            elif pending is not None:
-                if not stripped:
-                    flush()
-                elif len(stripped) < 200:
-                    pending_lines.append(stripped)
-                else:
-                    flush()
+            # Distinguish real captions from in-text citations:
+            #   real caption: "Fig. 1. The Metallographic..."  -> rest starts UPPERCASE
+            #   in-text cite: "Fig. 2 shows the stress..."     -> rest starts lowercase verb
+            # Also skip explicit citation phrasings like "see Fig. 3 for ...".
+            rest_head = m.group("rest")[:1] if m else ""
+            is_intext_cite = (
+                not m
+                or len(stripped) >= 200
+                or stripped.lower().startswith(("see fig", "as fig", "fig. s"))
+                or (rest_head and not rest_head.isupper())
+            )
+            if is_intext_cite:
+                # Body line (or an in-text Fig. citation) — continue appending
+                # to current caption block, but flush if body line is long.
+                if pending is not None:
+                    if not stripped:
+                        flush()
+                    elif len(stripped) < 200:
+                        pending_lines.append(stripped)
+                    else:
+                        flush()
+                continue
+            flush()
+            kind_raw = m.group("kind").lower()
+            kind = "table" if kind_raw.startswith(("table", "tab", "表")) else "figure"
+            number = f"{m.group('kind')} {m.group('num')}".replace(". ", ".").strip()
+            pending = Caption(number=number, kind=kind, text=m.group("rest").strip(), page=page_idx)
+            pending_lines = []
     flush()
 
     # Deduplicate by number, keep first occurrence.
