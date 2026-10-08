@@ -66,8 +66,8 @@ TEN_QUESTIONS = [
     },
     {
         "id": 10,
-        "question": "本文最容易被审稿人攻击的点是什么？（数据/假设/方法/对比对象任选最脆弱处）",
-        "type": "客观+分析",
+        "question": "结合本文研究方向，推荐 3–5 篇该领域顶刊必读论文（顶刊指 Corrosion Science、Acta Materialia、Materials Today Communications、Corrosion 等同档期刊），每篇说清核心贡献和为什么值得你读。",
+        "type": "分析+应用",
     },
 ]
 
