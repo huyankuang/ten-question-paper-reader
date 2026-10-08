@@ -53,6 +53,7 @@ class Paper:
             "title": self.title,
             "authors": self.authors,
             "abstract": self.abstract,
+            "full_text": self.full_text,
             "total_pages": self.total_pages,
             "source_path": self.source_path,
             "sections": [
