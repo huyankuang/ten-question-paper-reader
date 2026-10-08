@@ -22,13 +22,14 @@ SECTION_PATTERNS = [
     r"^\s*\d*\.?\d*\s*(result|results|analysis|discussion|validation)\b",
     r"^\s*\d*\.?\d*\s*(conclusion|conclusions|summary and conclusion)\b",
     r"^\s*\d*\.?\d*\s*(reference|references|bibliography)\b",
-    # Chinese headings (common in domestic journals)
-    r"^\s*\d*\.?\d*\s*(摘要|关键词)\s*[:：]?",
-    r"^\s*\d*\.?\d*\s*(引言|介绍|前言|绪论)\s*$",
-    r"^\s*\d*\.?\d*\s*(实验|试验|方法|材料与方法|研究方法)\s*$",
-    r"^\s*\d*\.?\d*\s*(结果|结果与分析|分析与讨论|讨论)\s*$",
-    r"^\s*\d*\.?\d*\s*(结论|结论与展望|结语)\s*$",
-    r"^\s*\d*\.?\d*\s*(参考文献|引用标准)\s*$",
+    # Chinese headings — require an explicit section number prefix so body
+    # sentences starting with "实验..." / "方法..." are not misclassified.
+    r"^\s*\d+\.?\s*(摘要|关键词)\s*[:：]?",
+    r"^\s*\d+\.?\s*(引言|介绍|前言|绪论)",
+    r"^\s*\d+\.?\s*(实验|试验|方法|材料与方法|研究方法)",
+    r"^\s*\d+\.?\s*(结果|结果与分析|分析与讨论|讨论)",
+    r"^\s*\d+\.?\s*(结论|结论与展望|结语)",
+    r"^\s*\d+\.?\s*(参考文献|引用标准)",
 ]
 
 # Robust abstract anchor: covers "ABSTRACT", "A B S T R A C T" (spaced, common
