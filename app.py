@@ -67,11 +67,23 @@ if st.button("🚀 开始精读", type="primary", use_container_width=True):
             detect_terms(paper, pdf_path)
             s1.update(label=f"✅ 解析完成：{paper.title} ｜ {len(paper.captions)} 张图表")
 
-        with st.status("② 调 LLM 生成十问（约 30–60 秒）...") as s2:
+        with st.status("② 调 LLM 生成十问（约 30–120 秒）...") as s2:
             note = generate_answers(paper)
             s2.update(label="✅ 十问生成完成")
+    except Exception as e:
+        err = str(e)
+        if "timeout" in err.lower():
+            st.error("⏱️ 请求超时。常见原因：① 用 OpenAI 官方 API 但本机直连不通——请改填 DeepSeek 等国内兼容接口（BASE_URL=https://api.deepseek.com/v1，模型=deepseek-chat）；② 论文较长模型生成慢，可直接重试一次。")
+        elif "401" in err or "invalid" in err.lower() or "api key" in err.lower():
+            st.error("🔑 API Key 无效或 BASE_URL/模型名不匹配。请核对左侧三项是否一致。")
+        elif "429" in err:
+            st.error("🚦 额度用尽或被限流，请稍后再试。")
+        else:
+            st.error(f"❌ 生成失败：{err[:500]}")
+        st.stop()
     finally:
-        os.unlink(pdf_path)
+        if os.path.exists(pdf_path):
+            os.unlink(pdf_path)
 
     # ---- 展示 ----
     st.header(f"📄 {note.paper_title}")

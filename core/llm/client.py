@@ -44,7 +44,12 @@ def _chat_openai(messages: List[Dict[str, str]], temperature: float) -> str:
     except ImportError:
         return "【缺少依赖】请运行 pip install openai"
 
-    client = OpenAI(api_key=s["api_key"], base_url=s["base_url"])
+    client = OpenAI(
+        api_key=s["api_key"],
+        base_url=s["base_url"],
+        timeout=180.0,          # 10问长输出给足3分钟
+        max_retries=2,          # 超时/限流自动重试2次
+    )
     resp = client.chat.completions.create(
         model=s["model"],
         messages=messages,
