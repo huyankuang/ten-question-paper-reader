@@ -1,0 +1,11 @@
+# Codex 专用元数据（OpenAI Codex CLI 识别）
+display_name: 十问文献精读器
+category: research
+summary: 用十问精读法结构化拆解学术论文 PDF，生成双层答案、术语表并评价用户自写总结。
+triggers:
+  - 精读论文
+  - 拆解论文
+  - 十问
+  - paper reading
+  - literature review
+homepage: https://github.com/your-org/ten-question-paper-reader

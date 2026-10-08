@@ -33,40 +33,45 @@
 
 ## 🚀 快速开始
 
-> **v0.1.1 起，本项目已改造为 Codex Agent Skill：不再需要打开 VS Code、不需要按 F5 启动扩展开发宿主。**
+> **v0.3 起，本项目已从「Codex 专属插件」改造为跨平台 Agent Skill：不再需要打开 VS Code，也不绑定某一家 agent。**
 > 之前的 VSIX 单独安装后会报错，是因为插件把 Python `core/` 的位置硬编码为"扩展目录往上三级 = 仓库根"，
 > 打包成 VSIX 后这个相对路径指向 VS Code 扩展安装目录，那里没有 `core/`。
-> 现在仓库内置了自包含的 Codex Skill，Codex 打开本目录即可直接识别使用。
+> 现在同一份 skill 放在三个目录，主流 agent 打开本仓库即可直接识别（见下表）。
 
 ### 环境要求
 - Python 3.9+（依赖：`pip install -r requirements.txt`，即 pymupdf、openai）
 - OpenAI 兼容接口的 API Key（设为环境变量 `OPENAI_API_KEY`）
 - **不需要 Node.js、不需要 VS Code**（仅在你想重新打包侧边栏插件时才需要 Node 18+）
 
-### 方式一：在 Codex 里直接用（推荐）
+### 方式一：在任意 AI Agent 里直接用（推荐）
 
-1. 用 Codex（CLI / IDE 均可）打开本仓库目录。
+本仓库内置**跨平台 Agent Skill**，同一份内容放在三个目录，覆盖主流 agent：
+
+| 你用的 Agent | 识别路径 | 本仓库目录 |
+|---|---|---|
+| Codex CLI（新版）、Gemini CLI、VS Code Copilot | `.agents/skills/`（厂商中立） | `.agents/skills/ten-question-paper-reader/` |
+| Claude Code | `.claude/skills/` | `.claude/skills/ten-question-paper-reader/` |
+| Cursor（兼容读旧目录） | `.codex/skills/` | `.codex/skills/ten-question-paper-reader/` |
+
+1. 用你习惯的 AI Agent 打开本仓库目录。
 2. 直接对它说：「帮我精读这篇论文：`/path/to/your_paper.pdf`」。
-3. Codex 会自动识别 `.codex/skills/ten-question-paper-reader/`，按三步流水线执行：
-   - 解析 PDF → `paper.json`
-   - 调 LLM 生成十问答案 → `note.json`
-   - 你写完自己的总结后，再让它跑四维度评价
-4. 全过程不需要打开任何 IDE。
+3. Agent 自动识别 skill，按三步流水线执行：解析 PDF → 生成十问答案 → 你写完自述后做四维评价。全过程不需要打开任何 IDE。
 
-> 想全局可用？把整个 `.codex/skills/ten-question-paper-reader/` 文件夹拷到
-> `~/.codex/skills/` 即可——skill 内已带 `scripts/bundled/core/` 自包含运行时。
+> 想全局可用（任何目录都能用）？把对应目录的 `ten-question-paper-reader/` 整个文件夹拷到你的 agent 用户级目录：
+> Codex/Gemini/Copilot → `~/.agents/skills/`；Claude Code → `~/.claude/skills/`；Codex 旧版/Cursor → `~/.codex/skills/`。skill 内已带 `scripts/bundled/core/` 自包含运行时，拷到哪都能跑。
 
 ### 方式二：纯命令行（不依赖任何 AI 助手）
 
 ```powershell
+# 路径以 .agents 主版本为例；.claude / .codex 下的脚本完全相同
 # 第一步：解析PDF
-python .codex/skills/ten-question-paper-reader/scripts/tqpr.py parse --pdf your_paper.pdf > paper.json
+python .agents/skills/ten-question-paper-reader/scripts/tqpr.py parse --pdf your_paper.pdf > paper.json
 
 # 第二步：生成十问答案
-python .codex/skills/ten-question-paper-reader/scripts/tqpr.py generate --paper paper.json > note.json
+python .agents/skills/ten-question-paper-reader/scripts/tqpr.py generate --paper paper.json > note.json
 
 # 第三步：写好总结后让AI评价
-python .codex/skills/ten-question-paper-reader/scripts/tqpr.py evaluate --note note.json --summary @my_summary.txt
+python .agents/skills/ten-question-paper-reader/scripts/tqpr.py evaluate --note note.json --summary @my_summary.txt
 ```
 
 ### 方式三：VS Code 侧边栏插件（可选，已修复路径问题）
@@ -92,18 +97,21 @@ python -m core.cli evaluate --note note.json --summary @my_summary.txt
 
 ```
 ten-question-paper-reader/
-├── .codex/
+├── .agents/
 │   └── skills/
-│       └── ten-question-paper-reader/   # ← Codex 自动识别的 Agent Skill
+│       └── ten-question-paper-reader/   # ← 主版本（Codex新版/Gemini/Copilot 识别）
 │           ├── SKILL.md                 # 触发描述 + 工作流指令
-│           ├── agents/openai.yaml
+│           ├── agents/openai.yaml        # Codex 专属元数据（其他平台忽略）
 │           ├── scripts/
 │           │   ├── tqpr.py              # 自定位启动入口（核心）
-│           │   ├── bundled/core/        # 自包含 Python 运行时（兜底）
+│           │   ├── bundled/core/         # 自包含 Python 运行时（兜底）
 │           │   └── requirements.txt
 │           └── references/
 │               └── ten-questions.md     # 十问框架与输出模板
-├── AGENTS.md                  # Codex 进仓库首先读到的说明
+├── .claude/skills/ten-question-paper-reader/   # Claude Code 副本（内容同上）
+├── .codex/skills/ten-question-paper-reader/    # Codex旧版/Cursor 副本（内容同上）
+├── tools/sync-skills.ps1                # 改完主版本后一键同步到上面两处副本
+├── AGENTS.md                  # 各 AI 代理进仓库首先读到的说明
 ├── core/                      # 核心逻辑（canonical 源，改完需同步到 bundled）
 │   ├── pdf_parser/           # PDF文本提取、术语识别
 │   ├── llm/                  # LLM调用、十问生成、评价
